@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI
+from fastapi import FastAPI
 from supabase import create_client
 import random, smtplib, os
 from email.mime.text import MIMEText

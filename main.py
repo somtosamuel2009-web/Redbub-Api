@@ -34,14 +34,19 @@ else:
 REDBUB_AI_GREETING = "Hello👋, how can I help you"
 DEFAULT_OWNER_GREETING = "Thanks for reaching out on us👍. How can we help you"
 
+# ===== NEW: LOGO + VERIFIED BADGE SETTINGS =====
+# If you later upload real logo to Supabase, put the URL here. For now we use CSS logo so e go show always!
+REDBUB_LOGO_URL = os.getenv("REDBUB_LOGO_URL", "")  # e.g. https://your-supabase.../redbub-logo.png
+REDBUB_SENDER_NAME = "RedbubMega"
+
 @app.get("/")
 def home():
     return {
         "message": "Redbub API dey work! OTP REAL + CATEGORY + Login 🚀",
         "supabase_connected": supabase is not None,
-        "status": "LIVE FINAL - CATEGORY FIXED",
+        "status": "LIVE FINAL - CATEGORY FIXED + LOGO + VERIFIED BADGE",
         "email_configured": bool(os.getenv("EMAIL") and os.getenv("EMAIL_PASS")),
-        "features": ["send-otp", "verify-otp", "device-accounts", "check-email", "get-username", "update-password", "greetings", "category"]
+        "features": ["send-otp", "verify-otp", "device-accounts", "check-email", "get-username", "update-password", "greetings", "category", "verified-badge"]
     }
 
 @app.api_route("/send-otp", methods=["GET", "POST"])
@@ -53,7 +58,7 @@ def send_otp(
     device_name: str = "",
     device_model: str = "",
     platform: str = "",
-    category: str = "", # NEW - WHATSAPP/FB/IG CATEGORY
+    category: str = "",
     description: str = "",
     business_name: str = ""
 ):
@@ -122,17 +127,36 @@ def send_otp(
                 except Exception as e3:
                     print(f"Minimal upsert failed: {e3}")
 
+    # ===== UPDATED EMAIL DESIGN - LOGO + VERIFIED BADGE + HIDE EMAIL =====
+    # If you upload real logo, e go use image, if not e go use CSS orange R logo
+    if REDBUB_LOGO_URL:
+        logo_html = f'<img src="{REDBUB_LOGO_URL}" style="width:56px; height:56px; border-radius:50%; object-fit:cover; border:2px solid #FF8A1A;" alt="RedbubMega" />'
+    else:
+        logo_html = '''<div style="width:56px; height:56px; border-radius:50%; background:#FF8A1A; color:white; font-size:32px; font-weight:900; line-height:56px; text-align:center; margin:0 auto; box-shadow:0 2px 8px rgba(255,138,26,0.4);">R</div>'''
+
     html_body = f"""
-    <html><body style="font-family: Arial; text-align: center; padding: 20px;">
-        <div style="max-width: 500px; margin: 0 auto; border: 1px solid #eee; border-radius: 16px; padding: 30px;">
-            <h2 style="color: #FF8A1A;">RedbubMega</h2>
-            <h3>Confirm your email address</h3>
-            <p>Hello {display_name or 'there'},</p>
-            <p>Your <b>REAL 6-digit code</b> is:</p>
-            <div style="font-size: 48px; font-weight: 900; letter-spacing: 12px; background: #FFF7ED; padding: 20px; margin: 25px auto; border-radius: 12px; border: 2px dashed #FF8A1A;">{otp}</div>
-            <p>Username: <b>{formatted_username}</b> | Business: <b>{display_name}</b></p>
-            <p>Category: <b>{category or 'General'}</b> | Device: {device_name or 'Unknown'} | Phone: {phone}</p>
-            <p style="font-size: 13px;">This code will expire in <b>10 minutes</b>. Use latest code only!</p>
+    <html><body style="font-family: Arial, sans-serif; background:#F9F9F9; padding:20px; margin:0;">
+        <div style="max-width:520px; margin:0 auto; background:white; border:1px solid #eee; border-radius:18px; padding:32px 28px; text-align:center;">
+            <!-- HEADER: LOGO + NAME + VERIFIED BADGE - LIKE FB/X -->
+            <div style="margin-bottom:6px;">
+                {logo_html}
+            </div>
+            <div style="display:flex; align-items:center; justify-content:center; gap:6px; margin:10px 0 2px 0;">
+                <span style="font-size:26px; font-weight:900; color:#FF8A1A; letter-spacing:-0.5px;">RedbubMega</span>
+                <!-- BLUE VERIFIED BADGE -->
+                <span style="display:inline-block; width:22px; height:22px; background:#1D9BF0; border-radius:50%; color:white; font-size:14px; line-height:22px; text-align:center; font-weight:900; vertical-align:middle;" title="Verified">✓</span>
+            </div>
+            <p style="font-size:12px; color:#888; margin:0 0 20px 0; letter-spacing:0.5px;">OFFICIAL • VERIFIED BUSINESS • @redbubmega</p>
+            <hr style="border:none; border-top:1px solid #f0f0f0; margin:16px 0;" />
+            <h3 style="color:#111; margin:8px 0;">Confirm your email address</h3>
+            <p style="color:#444;">Hello {display_name or 'there'},</p>
+            <p style="color:#444;">Your <b>6-digit verification code</b> is:</p>
+            <div style="font-size:48px; font-weight:900; letter-spacing:12px; background:#FFF7ED; padding:20px 10px; margin:22px auto; border-radius:14px; border:2px dashed #FF8A1A; color:#111;">{otp}</div>
+            <p style="color:#444;">Username: <b>{formatted_username}</b><br/>Business: <b>{display_name}</b></p>
+            <p style="color:#444;">Category: <b>{category or 'General'}</b> | Device: {device_name or 'Unknown'} | Phone: {phone}</p>
+            <p style="font-size:13px; color:#666;">This code will expire in <b>10 minutes</b>. Use latest code only!</p>
+            <p style="font-size:11px; color:#999; margin-top:22px;">You received this email because you signed up for RedbubMega.<br/>If you didn't request this, please ignore.</p>
+            <p style="font-size:11px; color:#999;">© 2026 RedbubMega • Build Up A Business</p>
         </div>
     </body></html>
     """
@@ -144,10 +168,15 @@ def send_otp(
 
     if sender_email and sender_pass:
         msg = MIMEText(html_body, "html")
-        msg["Subject"] = f"Your Redbub OTP is {otp} - {formatted_username} - {category}"
-        msg["From"] = f"RedbubMega <{sender_email}>"
+        # HIDE EMAIL: Show only "RedbubMega" as sender name in inbox list
+        # Gmail still needs the real email behind, but inbox go show only name + logo
+        msg["Subject"] = f"Your Redbub OTP is {otp} - {formatted_username}"
+        msg["From"] = f"{REDBUB_SENDER_NAME} <{sender_email}>"
         msg["To"] = email
-        msg["Reply-To"] = sender_email
+        # Reply-To set to same but with name only display
+        msg["Reply-To"] = f"{REDBUB_SENDER_NAME} <{sender_email}>"
+        # Extra header to help Gmail show brand name
+        msg["X-Brand"] = "RedbubMega"
 
         for attempt in range(2):
             try:
@@ -180,18 +209,13 @@ def verify_otp(email: str, otp: str):
         clean_email = email.strip().lower()
         clean_otp = otp.strip().zfill(6)
         print(f"🔍 VERIFY TRY: email={clean_email} otp={clean_otp}")
-
-        # Get latest profile by email only - then compare OTP manually (REAL FIX FOR WRONG CODE)
         result = supabase.table("profiles").select("*").eq("email", clean_email).execute()
         if not result.data:
             print(f"❌ Email {clean_email} not found")
             return {"verified": False, "message": "Email not found, send OTP first"}
-
         row = result.data[0]
         stored_otp = str(row.get("otp","")).strip()
         last_sent_str = row.get("last_otp_sent")
-
-        # Check expiry 10 mins
         if last_sent_str:
             try:
                 last_sent = datetime.fromisoformat(last_sent_str.replace("Z","+00:00"))
@@ -201,8 +225,6 @@ def verify_otp(email: str, otp: str):
                     return {"verified": False, "message": "OTP expired (10 mins), request new code"}
             except Exception as parse_e:
                 print(f"Date parse error: {parse_e}")
-
-        # REAL COMPARISON - TRIMMED
         if stored_otp == clean_otp:
             supabase.table("profiles").update({"verified": True, "email_verified": True}).eq("email", clean_email).execute()
             print(f"✅ OTP VERIFIED REAL for {clean_email} CAT {row.get('category')}")
@@ -214,8 +236,6 @@ def verify_otp(email: str, otp: str):
         print(f"Verify error: {e}")
         return {"verified": False, "message": f"Error: {e}"}
 
-# ===== FOR CONTINUE, RETRIEVE, LOGIN SCREENS =====
-
 @app.api_route("/device-accounts/add", methods=["GET","POST"])
 def add_device_account(email: str = "", full_name: str = "", username: str = "", phone: str = "", device_name: str = "", device_id: str = "", profile_url: str = "", category: str = ""):
     if not supabase:
@@ -226,7 +246,6 @@ def add_device_account(email: str = "", full_name: str = "", username: str = "",
             "phone": phone, "phone_no": phone, "device_name": device_name,
             "device_id": device_id, "avatar_url": profile_url, "category": category, "business_category": category
         }, on_conflict="email").execute()
-
         try:
             existing = supabase.table("device_accounts").select("*").eq("device_id", device_id).execute()
             if existing.data:
@@ -308,8 +327,6 @@ def update_password(email: str = "", new_password: str = "", device_name: str = 
         return {"updated": True, "message": "Password updated ✅ Saved to DB & Password Manager", "email": email}
     except Exception as e:
         return {"updated": False, "error": str(e)}
-
-# ===== GREETINGS & MESSAGES =====
 
 @app.get("/ai/welcome")
 def ai_welcome():
